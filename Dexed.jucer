@@ -116,7 +116,7 @@
   </MAINGROUP>
   <EXPORTFORMATS>
     <LINUX_MAKE targetFolder="Builds/Linux" vstFolder="~/src/vstsdk2.4" smallIcon="SpSpb4"
-                bigIcon="SpSpb4">
+                bigIcon="SpSpb4" linuxExtraPkgConfig="samplerate">
       <CONFIGURATIONS>
         <CONFIGURATION name="Debug" libraryPath="/usr/X11R6/lib/" isDebug="1" optimisation="1"
                        targetName="Dexed"/>

@@ -35,6 +35,9 @@
 #include "EngineMkI.h"
 #include "EngineOpl.h"
 
+/* Resampler */
+typedef struct SRC_STATE_tag SRC_STATE ;
+
 struct ProcessorVoice {
     int midi_note;
     int velocity;
@@ -66,8 +69,7 @@ class DexedAudioProcessor  : public AudioProcessor, public AsyncUpdater, public 
     bool monoMode;
     
     // Extra buffering for when GetSamples wants a buffer not a multiple of N
-    float extra_buf[N];
-    int extra_buf_size;
+    float nativeSampleBuf[N];
 
     int currentProgram;
     
@@ -121,6 +123,9 @@ class DexedAudioProcessor  : public AudioProcessor, public AsyncUpdater, public 
     void packOpSwitch();
     
 public :
+    SRC_STATE* resampler;
+    double resamplerRatio;
+
     // in MIDI units (0x4000 is neutral)
     Controllers controllers;
     StringArray programNames;
@@ -172,6 +177,7 @@ public :
     void prepareToPlay (double sampleRate, int samplesPerBlock);
     void releaseResources();
     void processBlock (AudioSampleBuffer& buffer, MidiBuffer& midiMessages);
+    static long resampledGenerate (void* cb_data, float** data);
     void panic();
     bool isMonoMode() {
         return monoMode;

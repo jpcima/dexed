@@ -21,6 +21,8 @@
 #include <stdarg.h>
 #include <bitset>
 
+#include <samplerate.h>
+
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
@@ -62,6 +64,11 @@
 
 #endif
 
+enum {
+    //Internal sample rate of Yamaha DX7
+    DX7_SAMPLE_RATE = 49096
+};
+
 //==============================================================================
 DexedAudioProcessor::DexedAudioProcessor() {
 #ifdef DEBUG
@@ -75,6 +82,9 @@ DexedAudioProcessor::DexedAudioProcessor() {
     }
     TRACE("Hi");
 #endif
+
+    resampler = NULL;
+    resamplerRatio = 0;
 
     Exp2::init();
     Tanh::init();
@@ -125,12 +135,17 @@ DexedAudioProcessor::~DexedAudioProcessor() {
 
 //==============================================================================
 void DexedAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock) {
-    Freqlut::init(sampleRate);
-    Lfo::init(sampleRate);
-    PitchEnv::init(sampleRate);
-    Env::init_sr(sampleRate);
-    fx.init(sampleRate);
-    
+    int resamplerError = 0;
+    resampler = src_callback_new(
+        &resampledGenerate, SRC_SINC_MEDIUM_QUALITY, 1, &resamplerError, this);
+    resamplerRatio = sampleRate / DX7_SAMPLE_RATE;
+
+    Freqlut::init(DX7_SAMPLE_RATE);
+    Lfo::init(DX7_SAMPLE_RATE);
+    PitchEnv::init(DX7_SAMPLE_RATE);
+    Env::init_sr(DX7_SAMPLE_RATE);
+    fx.init(DX7_SAMPLE_RATE);
+
     for (int note = 0; note < MAX_ACTIVE_NOTES; ++note) {
         voices[note].dx7_note = new Dx7Note;
         voices[note].keydown = false;
@@ -147,7 +162,6 @@ void DexedAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock) 
 	controllers.refresh(); 
 
     sustain = false;
-    extra_buf_size = 0;
 
     keyboardState.reset();
     
@@ -179,6 +193,9 @@ void DexedAudioProcessor::releaseResources() {
         delete midiMsg;
         midiMsg = NULL;
     }
+
+    src_delete(resampler);
+    resampler = NULL;
 }
 
 void DexedAudioProcessor::processBlock(AudioSampleBuffer& buffer, MidiBuffer& midiMessages) {
@@ -200,69 +217,14 @@ void DexedAudioProcessor::processBlock(AudioSampleBuffer& buffer, MidiBuffer& mi
     hasMidiMessage = it.getNextEvent(*nextMidi,midiEventPos);
 
     float *channelData = buffer.getWritePointer(0);
-  
-    // flush first events
-    for (i=0; i < numSamples && i < extra_buf_size; i++) {
-        channelData[i] = extra_buf[i];
-    }
-    
-    // remaining buffer is still to be processed
-    if (extra_buf_size > numSamples) {
-        for (int j = 0; j < extra_buf_size - numSamples; j++) {
-            extra_buf[j] = extra_buf[j + numSamples];
-        }
-        extra_buf_size -= numSamples;
-        
-        // flush the events, they will be process in the next cycle
-        while(getNextEvent(&it, numSamples)) {
+
+    for (i=0; i < numSamples; i++) {
+        while(getNextEvent(&it, i)) {
             processMidiMessage(midiMsg);
         }
-    } else {
-        for (; i < numSamples; i += N) {
-            AlignedBuf<int32_t, N> audiobuf;
-            float sumbuf[N];
-            
-            while(getNextEvent(&it, i)) {
-                processMidiMessage(midiMsg);
-            }
-            
-            for (int j = 0; j < N; ++j) {
-                audiobuf.get()[j] = 0;
-                sumbuf[j] = 0;
-            }
-            int32_t lfovalue = lfo.getsample();
-            int32_t lfodelay = lfo.getdelay();
-            
-            for (int note = 0; note < MAX_ACTIVE_NOTES; ++note) {
-                if (voices[note].live) {
-                    voices[note].dx7_note->compute(audiobuf.get(), lfovalue, lfodelay, &controllers);
-                    
-                    for (int j=0; j < N; ++j) {
-                        int32_t val = audiobuf.get()[j];
-                        
-                        val = val >> 4;
-                        int clip_val = val < -(1 << 24) ? 0x8000 : val >= (1 << 24) ? 0x7fff : val >> 9;
-                        float f = ((float) clip_val) / (float) 0x8000;
-                        if( f > 1 ) f = 1;
-                        if( f < -1 ) f = -1;
-                        sumbuf[j] += f;
-                        audiobuf.get()[j] = 0;
-                    }
-                }
-            }
-            
-            int jmax = numSamples - i;
-            for (int j = 0; j < N; ++j) {
-                if (j < jmax) {
-                    channelData[i + j] = sumbuf[j];
-                } else {
-                    extra_buf[j - jmax] = sumbuf[j];
-                }
-            }
-        }
-        extra_buf_size = i - numSamples;
+        while (src_callback_read(resampler, resamplerRatio, 1, &channelData[i]) != 1);
     }
-    
+
     while(getNextEvent(&it, numSamples)) {
         processMidiMessage(midiMsg);
     }
@@ -282,6 +244,49 @@ void DexedAudioProcessor::processBlock(AudioSampleBuffer& buffer, MidiBuffer& mi
     
     // DX7 is a mono synth
     buffer.copyFrom(1, 0, channelData, numSamples, 1);
+}
+
+
+long DexedAudioProcessor::resampledGenerate(void* cb_data, float** data)
+{
+    DexedAudioProcessor* self = reinterpret_cast<DexedAudioProcessor*>(cb_data);
+
+    AlignedBuf<int32_t, N> audiobuf;
+    float *sumbuf = self->nativeSampleBuf;
+
+    for (int j = 0; j < N; ++j) {
+        audiobuf.get()[j] = 0;
+        sumbuf[j] = 0;
+    }
+
+    Lfo &lfo = self->lfo;
+    ProcessorVoice *voices = self->voices;
+    Controllers &controllers = self->controllers;
+
+    int32_t lfovalue = lfo.getsample();
+    int32_t lfodelay = lfo.getdelay();
+
+    for (int note = 0; note < MAX_ACTIVE_NOTES; ++note) {
+        if (voices[note].live) {
+            voices[note].dx7_note->compute(audiobuf.get(), lfovalue, lfodelay, &controllers);
+
+            for (int j=0; j < N; ++j) {
+                int32_t val = audiobuf.get()[j];
+
+                val = val >> 4;
+                int clip_val = val < -(1 << 24) ? 0x8000 : val >= (1 << 24) ? 0x7fff : val >> 9;
+                float f = ((float) clip_val) / (float) 0x8000;
+                if( f > 1 ) f = 1;
+                if( f < -1 ) f = -1;
+                sumbuf[j] += f;
+                audiobuf.get()[j] = 0;
+            }
+        }
+    }
+
+    *data = sumbuf;
+
+    return N;
 }
 
 
