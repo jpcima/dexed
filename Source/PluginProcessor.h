@@ -38,6 +38,7 @@
 struct ProcessorVoice {
     int midi_note;
     int velocity;
+    int porta;
     bool keydown;
     bool sustained;
     bool live;
@@ -236,6 +237,8 @@ public :
     static File dexedCartDir;
     
     Value lastCCUsed;
+    int lastKeyDown;
+
 private:
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (DexedAudioProcessor)
