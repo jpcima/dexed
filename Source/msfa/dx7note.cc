@@ -32,6 +32,13 @@ int32_t midinote_to_logfreq(int midinote) {
     return base + step * midinote;
 }
 
+int32_t logfreq_round2semi(int freq) {
+    const int base = 50857777;  // (1 << 24) * (log(440) / log(2) - 69/12)
+    const int step = (1 << 24) / 12;
+    const int rem = (freq - base) % step;
+    return freq - rem;
+}
+
 const int32_t coarsemul[] = {
     -16777216, 0, 16777216, 26591258, 33554432, 38955489, 43368474, 47099600,
     50331648, 53182516, 55732705, 58039632, 60145690, 62083076, 63876816,
@@ -190,6 +197,7 @@ void Dx7Note::init(const uint8_t patch[156], int midinote, int velocity, int src
     pitchmodsens_ = pitchmodsenstab[patch[143] & 7];
     ampmoddepth_ = (patch[140] * 165) >> 6;
     porta_rateindex_ = (porta < 128) ? porta : 127;
+    porta_gliss_ = patch[68];
 }
 
 void Dx7Note::compute(int32_t *buf, int32_t lfo_val, int32_t lfo_delay, const Controllers *ctrls) {
@@ -242,8 +250,11 @@ void Dx7Note::compute(int32_t *buf, int32_t lfo_val, int32_t lfo_delay, const Co
             if ( opMode[op] )
                 params_[op].freq = Freqlut::lookup(basepitch + pitch_base);
             else {
-                if ( porta_rateindex_ >= 0 )
+                if ( porta_rateindex_ >= 0 ) {
                     basepitch = porta_curpitch_[op];
+                    if ( porta_gliss_ )
+                        basepitch = logfreq_round2semi(basepitch);
+                }
                 params_[op].freq = Freqlut::lookup(basepitch + pitch_mod);
             }
 
@@ -327,6 +338,7 @@ void Dx7Note::update(const uint8_t patch[156], int midinote, int velocity, int p
     pitchmodsens_ = pitchmodsenstab[patch[143] & 7];
     ampmoddepth_ = (patch[140] * 165) >> 6;
     porta_rateindex_ = (porta < 128) ? porta : 127;
+    porta_gliss_ = patch[68];
 }
 
 void Dx7Note::peekVoiceStatus(VoiceStatus &status) {

@@ -74,6 +74,7 @@ private:
     int pitchmodsens_;
 
     int porta_rateindex_;
+    int porta_gliss_;
     int32_t porta_curpitch_[6];
 };
 
