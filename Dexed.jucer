@@ -95,6 +95,8 @@
         <FILE id="USTZRs" name="fm_op_kernel.cc" compile="1" resource="0" file="Source/msfa/fm_op_kernel.cc"/>
         <FILE id="BSgkNU" name="fm_op_kernel.h" compile="0" resource="0" file="Source/msfa/fm_op_kernel.h"/>
         <FILE id="qdGaN5" name="module.h" compile="0" resource="0" file="Source/msfa/module.h"/>
+        <FILE id="CKjBFp" name="porta.cc" compile="1" resource="0" file="Source/msfa/porta.cc"/>
+        <FILE id="gwoz0y" name="porta.h" compile="0" resource="0" file="Source/msfa/porta.h"/>
         <FILE id="yQIN5Y" name="pitchenv.cc" compile="1" resource="0" file="Source/msfa/pitchenv.cc"/>
         <FILE id="Hfa2Et" name="pitchenv.h" compile="0" resource="0" file="Source/msfa/pitchenv.h"/>
         <FILE id="eMP01b" name="sin.cc" compile="1" resource="0" file="Source/msfa/sin.cc"/>

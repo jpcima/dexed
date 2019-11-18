@@ -113,6 +113,7 @@ OBJECTS_SHARED_CODE := \
   $(JUCE_OBJDIR)/exp2_ef8e37bf.o \
   $(JUCE_OBJDIR)/fm_core_963f4751.o \
   $(JUCE_OBJDIR)/fm_op_kernel_f831cdd1.o \
+  $(JUCE_OBJDIR)/porta_a3efc148.o \
   $(JUCE_OBJDIR)/pitchenv_d3341dc7.o \
   $(JUCE_OBJDIR)/sin_b36ef3f0.o \
   $(JUCE_OBJDIR)/PluginProcessor_a059e380.o \
@@ -265,6 +266,11 @@ $(JUCE_OBJDIR)/fm_core_963f4751.o: ../../Source/msfa/fm_core.cc
 $(JUCE_OBJDIR)/fm_op_kernel_f831cdd1.o: ../../Source/msfa/fm_op_kernel.cc
 	-$(V_AT)mkdir -p $(JUCE_OBJDIR)
 	@echo "Compiling fm_op_kernel.cc"
+	$(V_AT)$(CXX) $(JUCE_CXXFLAGS) $(JUCE_CPPFLAGS_SHARED_CODE) $(JUCE_CFLAGS_SHARED_CODE) -o "$@" -c "$<"
+
+$(JUCE_OBJDIR)/porta_a3efc148.o: ../../Source/msfa/porta.cc
+	-$(V_AT)mkdir -p $(JUCE_OBJDIR)
+	@echo "Compiling porta.cc"
 	$(V_AT)$(CXX) $(JUCE_CXXFLAGS) $(JUCE_CPPFLAGS_SHARED_CODE) $(JUCE_CFLAGS_SHARED_CODE) -o "$@" -c "$<"
 
 $(JUCE_OBJDIR)/pitchenv_d3341dc7.o: ../../Source/msfa/pitchenv.cc
