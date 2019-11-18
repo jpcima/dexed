@@ -180,6 +180,7 @@ void Dx7Note::init(const uint8_t patch[156], int midinote, int velocity, int src
         int32_t freq = osc_freq(midinote, mode, coarse, fine, detune);
         opMode[op] = mode;
         basepitch_[op] = freq;
+        porta_curpitch_[op] = freq;
         ampmodsens_[op] = ampmodsenstab[patch[off + 14] & 3];
 
         if (porta >= 0)
@@ -308,12 +309,11 @@ void Dx7Note::update(const uint8_t patch[156], int midinote, int velocity, int p
         int coarse = patch[off + 18];
         int fine = patch[off + 19];
         int detune = patch[off + 20];
-        basepitch_[op] = osc_freq(midinote, mode, coarse, fine, detune);
+        int32_t freq = osc_freq(midinote, mode, coarse, fine, detune);
+        basepitch_[op] = freq;
+        porta_curpitch_[op] = freq;
         ampmodsens_[op] = ampmodsenstab[patch[off + 14] & 3];
         opMode[op] = mode;
-
-        if (porta >= 0)
-            porta_curpitch_[op] = basepitch_[op];
 
         for (int i = 0; i < 4; i++) {
             rates[i] = patch[off + i];
@@ -364,6 +364,12 @@ void Dx7Note::transferSignal(Dx7Note &src) {
     for (int i=0;i<6;i++) {
         params_[i].gain_out = src.params_[i].gain_out;
         params_[i].phase = src.params_[i].phase;
+    }
+}
+
+void Dx7Note::transferPortamento(Dx7Note &src) {
+    for (int i=0;i<6;i++) {
+        porta_curpitch_[i] = src.porta_curpitch_[i];
     }
 }
 

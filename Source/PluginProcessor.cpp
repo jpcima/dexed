@@ -430,7 +430,8 @@ void DexedAudioProcessor::keydown(uint8_t pitch, uint8_t velo) {
             voices[note].porta = porta;
             voices[note].sustained = sustain;
             voices[note].keydown = true;
-            voices[note].dx7_note->init(data, pitch, velo, previousKeyDown, porta);
+            int srcnote = (previousKeyDown >= 0) ? previousKeyDown : pitch;
+            voices[note].dx7_note->init(data, pitch, velo, srcnote, porta);
             if ( data[136] )
                 voices[note].dx7_note->oscSync();
             break;

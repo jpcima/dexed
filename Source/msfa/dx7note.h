@@ -56,6 +56,7 @@ public:
     void peekVoiceStatus(VoiceStatus &status);
     void transferState(Dx7Note& src);
     void transferSignal(Dx7Note &src);
+    void transferPortamento(Dx7Note &src);
     void oscSync();
     
 private:
